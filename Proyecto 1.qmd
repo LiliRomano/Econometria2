@@ -1,0 +1,191 @@
+---
+title: "Proyecto 1"
+author: "Romano"
+format: html
+editor: visual
+---
+
+PRONOSTICO DE LA INFLACION EN MEXICO
+
+CARGAR DATOS DE INPC DEL INEGI
+
+```{r}
+head(INPC_Eco2) 
+```
+
+Serie LOG
+
+```{r}
+library(forecast)
+```
+
+```{r}
+inpc_ts <- ts(
+  data = INPC_Eco2$inpc,
+  frequency = 12,
+  start = c(2000, 1)
+)
+log_inpc_ts <- log(inpc_ts)
+x_dummies_log <- seasonaldummy(log_inpc_ts)
+
+diff_log_inpc_ts <- diff(log_inpc_ts)
+x_dummies_diff_log <- seasonaldummy(diff_log_inpc_ts)
+
+plot(inpc_ts, main = "Serie del INPC mensual en Niveles")
+```
+
+
+```{r}
+inpc_ts <- ts(
+  data = INPC_Eco2$inpc,
+  frequency = 12,
+  start = c(2000, 1)
+  
+)
+
+log_inpc_ts <- log(inpc_ts)
+diff_log_inpc_ts <- diff(log_inpc_ts)
+
+plot(log_inpc_ts, main = "Log(INPC)")
+plot(diff_log_inpc_ts, main = "Diff(Log(INPC))")
+```
+
+```{r}
+library(dplyr)
+```
+
+```{r}
+dy4 <- diff(inpc_ts, lag = 4)
+plot(dy4)
+```
+
+```{r}
+inpc_ts <- ts(
+  data = INPC_Eco2$inpc,
+  frequency = 12,
+  start = c(2000, 1)
+)
+log_inpc_ts <- log(inpc_ts)
+x_dummies_log <- seasonaldummy(log_inpc_ts)
+
+diff_log_inpc_ts <- diff(log_inpc_ts)
+x_dummies_diff_log <- seasonaldummy(diff_log_inpc_ts)
+
+plot(inpc_ts, main = "Serie del INPC en Niveles")
+plot(log_inpc_ts, main = "Serie del Log(INPC)")
+plot(diff_log_inpc_ts, main = "Serie del Diff(Log(INPC))")
+```
+
+```{r}
+#Model
+model <- arima(diff_log_inpc_ts, order = c(1, 0, 1), xreg = x_dummies_diff_log)
+summary(model)
+```
+
+```{r}
+acf(diff_log_inpc_ts)
+pacf(diff_log_inpc_ts)
+```
+
+```{r}
+model_02 <- arima(diff_log_inpc_ts, order = c(3, 0, 3), xreg = x_dummies_diff_log)
+summary(model_02)
+```
+
+```{r}
+library(tseries)
+
+adf.test(diff_log_inpc_ts)
+```
+
+COMPONENTE ESTOCASTICO
+
+```{r}
+model <- arima(
+          diff_log_inpc_ts,
+          order = c(0, 0, 0),
+          seasonal = list(order = c(1, 0, 0), period = 12),
+          method = "ML"
+        )
+summary(model)
+plot(residuals(model), xlab = "time", ylab = "U_t", main = "Componente estocástico")
+```
+
+ARIMA
+
+```{r}
+library(forecast)
+
+forecast_inpc <- forecast(model, h = 12)
+
+autoplot(forecast_inpc)
+```
+
+```{r}
+autoplot(forecast_inpc)
+autoplot(model)
+checkresiduals(forecast_inpc)
+```
+
+```{r}
+model <- arima(
+          diff_log_inpc_ts,
+          order = c(1, 1, 0),
+          seasonal = list(order = c(1, 0, 0), period = 12),
+          method = "ML"
+        )
+summary(model)
+plot(residuals(model), xlab = "time", ylab = "U_t", main = "Componente estocástico")
+
+autoplot(forecast_inpc)
+autoplot(model)
+checkresiduals(forecast_inpc)
+
+summary(model)
+
+forecast_inpc <- forecast(model, h = 10)
+
+autoplot(forecast_inpc)
+
+autoplot(model)
+checkresiduals(forecast_inpc)
+```
+
+
+```{r}
+forecast_inpc <- forecast(auto_model, h = 12)
+autoplot(forecast_inpc)
+```
+
+```{r}
+library(forecast)
+
+modelo_arima <- auto.arima(log_inpc_ts)
+
+summary(modelo_arima)
+```
+
+```{r}
+checkresiduals(modelo_arima)
+```
+
+```{r}
+pronostico <- forecast(modelo_arima, h=12)
+
+plot(pronostico)
+```
+
+
+```{r}
+my_residuals <- residuals(INPC_Eco2)
+auto_residuals <- residuals(auto_model)
+plot(auto_residuals, main = "Comparación de modelos", col = "red", ylab = "Residuals", xlab = "Tiempo", lwd = 2)
+lines(my_residuals, col = "blue", lwd = 2)
+legend("bottomleft",
+       legend = c("My model ARIMA", "Modelo SARIMAa"),
+       col = c("blue", "red"),
+       lty = 1,
+       lwd = 2,
+       bty = "n")
+```
+
