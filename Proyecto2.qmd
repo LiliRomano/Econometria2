@@ -1,0 +1,88 @@
+---
+title: "Eco P.2"
+author: "Romano"
+format: html
+editor: visual
+---
+
+```{r}
+library(readxl)
+library(vars)
+library(tseries)
+library(urca)
+```
+
+```{r}
+inpc = INPC_Eco2$inpc
+tc = Tipo_de_cambio$`Tipo de cambio`
+tasa = Tasa_de_interes$`Tasa`
+
+```
+
+```{r}
+# 2. Creación del objeto de serie de tiempo (ts)
+# Iniciamos en 2009-01 según tus archivos de TC y Tasa
+inpc_ts <- ts(INPC_Eco2$inpc, start = c(2009, 1), frequency = 12)
+tc_ts <- ts(Tipo_de_cambio$`Tipo de cambio`, start = c(2009, 1), frequency = 12)
+tasa_ts <- ts(Tasa_de_interes$`Tasa`, start = c(2009, 1), frequency = 12)
+
+# Unimos las series en un solo objeto para el modelo VAR
+data_var <- cbind(inpc_ts, tc_ts, tasa_ts)
+colnames(data_var) <- c("INPC", "TC", "CETE28")
+data_var <- na.omit(data_var) # Limpiamos valores nulos
+```
+
+```{r}
+# --- 2. TRANSFORMACIÓN PARA ESTACIONARIEDAD (Aquí se corrige el error) ---
+
+# INPC y Tipo de Cambio: Usamos log-diferencia (Crecimiento porcentual)
+d_ln_inpc <- diff(log(inpc_ts))
+d_ln_tc   <- diff(log(tc_ts))
+
+# Tasa de Interés: SOLO diferencia simple (Para evitar los NaNs de los negativos)
+d_tasa    <- diff(tasa_ts)
+
+# Combinamos en una base de datos limpia
+data_diff <- cbind(d_ln_inpc, d_ln_tc, d_tasa)
+colnames(data_diff) <- c("INPC", "TC", "CETE28")
+data_diff <- na.omit(data_diff)
+
+# --- 3. PRUEBA DE ESTACIONARIEDAD ---
+# Ahora verás que ya no salen NaNs
+apply(data_diff, 2, adf.test)
+
+# --- 4. CONTINUAR CON EL MODELO VAR ---
+# Selección de rezagos
+modelo_var <- VAR(data_diff, p = 2, type = "const")
+summary(modelo_var)
+```
+
+
+```{r}
+# Estimación del modelo VAR (usamos p=2 o el que sugiera AIC)
+modelo_final <- VAR(data_diff, p = 2, type = "const")
+summary(modelo_final)
+```
+
+```{r}
+# Causalidad de Granger: ¿El TC ayuda a predecir el INPC?
+causality(modelo_final, cause = "TC")$Granger
+
+# Función de Impulso-Respuesta (IRF)
+# Impacto de un choque en el Tipo de Cambio sobre el INPC
+irf_tc_inpc <- irf(modelo_final, impulse = "TC", response = "INPC", n.ahead = 12, boot = TRUE)
+plot(irf_tc_inpc, main = "Impacto del Tipo de Cambio en la Inflación")
+
+# Impacto de la Tasa (CETE28) sobre el INPC
+irf_tasa_inpc <- irf(modelo_final, impulse = "CETE28", response = "INPC", n.ahead = 12, boot = TRUE)
+plot(irf_tasa_inpc, main = "Impacto de la Tasa de Interés en la Inflación")
+```
+
+```{r}
+# Pronóstico de las 3 variables
+pronostico <- predict(modelo_final, n.ahead = 6, ci = 0.95)
+
+# Graficar el pronóstico del INPC
+plot(pronostico, names = "INPC")
+```
+
